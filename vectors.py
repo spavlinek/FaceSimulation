@@ -18,17 +18,19 @@ class Vector():
         self.y = self.createVectorFromTwoPoints(p1, p2)[1]
     
     #percent should be a decimal ie 50% as 0.5
-    def updatePercentageOfVector(self, percent):
+    def updateVectorUsingPercentage(self, percent):
         self.p2 = (self.p1[0] + self.unitVector[0] * self.maxLength * percent,
                self.p1[1] + self.unitVector[1] * self.maxLength * percent)
+        self.x = self.createVectorFromTwoPoints(self.p1, self.p2)[0]
+        self.y = self.createVectorFromTwoPoints(self.p1, self.p2)[1]
+
 
     def getVectorLength(self):
-        x1 = self.p1[0]
-        x2 = self.p2[0]
-        y1 = self.p1[1]
-        y2 = self.p2[1]
-        # Calculate the length of the vector
-        return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+        print(f"getting vector length, p1: {self.p1}, p2:{self.p2}")
+        p1 = self.p1
+        p2 = self.p2
+        distance = (((p2[0] - p1[0]) ** 2)+ ((p2[1] - p1[1]) ** 2))**0.5
+        return distance
     
     
     def createUnitVectorFromTwoPoints(self, p1, p2):
@@ -48,7 +50,10 @@ class Vector():
         magnitude = np.linalg.norm(vector)
 
         # Create the unit vector by dividing the vector by its magnitude
-        unitVector = vector / magnitude
+        if magnitude != 0:
+            unitVector = vector / magnitude
+        else:
+            unitVector = np.array([0.0, 0.0])
         return unitVector
     
     def createVectorFromTwoPoints(self, p1, p2):

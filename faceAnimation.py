@@ -9,6 +9,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from vectors import Vector
 from faceFeature import FaceFeature
+from emotions import Emotion
 
 class FaceAnimation(QWidget):
     #faceFeatures is a list of faceFeatures
@@ -22,7 +23,7 @@ class FaceAnimation(QWidget):
         self.points = []
         vectors = []
         for faceFeature in self.faceFeatures:
-            if faceFeature.name != "leftPupil" and faceFeature.name != "rightPupil":
+            if faceFeature.name not in ["leftPupil", "rightPupil", "leftIris", "rightIris", "rightEyelid", "leftEyelid"]:
                 self.points.append(faceFeature.points)
                 vectors.append(faceFeature.vectors)
                 
@@ -44,70 +45,68 @@ class FaceAnimation(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-
         # Set the pen for drawing points
-        pen = QPen()
-        pen.setColor(Qt.red)
-        pen.setWidth(2)
-        painter.setPen(pen)
-
-        # #draw the vectors
-        # for faceFeatureIndex in range(len(self.vectors)):
-        #     for p in range(len(self.vectors[faceFeatureIndex])):
-        #         for v in self.vectors[faceFeatureIndex][p]:
-        #             p1 = QPointF(v.p1[0], v.p1[1])
-        #             p2 = QPointF(v.p2[0], v.p2[1])
-        #             painter.drawLine(p1,p2)
-
-        # Set the pen for drawing points
-        pen = QPen()
-        pen.setColor(Qt.black)
-        pen.setWidth(5)
-        painter.setPen(pen)
         #draw the eyes which are circles
         for faceFeature in self.faceFeatures:
-            if faceFeature.name == "leftPupil" or faceFeature.name == "rightPupil":
+            painter.setPen(QPen(Qt.black,  5))
+            if faceFeature.name == "leftPupil" or faceFeature.name == "rightPupil" or faceFeature.name == "leftIris" or faceFeature.name == "rightIris":
                 painter.drawEllipse (faceFeature.points[0][0], faceFeature.points[0][1],faceFeature.points[1], faceFeature.points[2])
+            if faceFeature.name == "leftEyelid" or faceFeature.name == "rightEyelid":   
+                #blinking
+                painter.setPen(QPen(Qt.white,  5))
+                painter.setBrush(QBrush(Qt.white, Qt.SolidPattern))
+                painter.drawRect(faceFeature.points[0][0], faceFeature.points[0][1],faceFeature.points[1], faceFeature.points[2])
         #draw the other facial Features
+        painter.setPen(QPen(Qt.black,  5))
         for faceFeatureIndex in range(len(self.points)):
             for i in range (len(self.points[faceFeatureIndex])-1):
                 painter.drawLine(self.points[faceFeatureIndex][i], self.points[faceFeatureIndex][i+1])
 
-    def moveWidget(self):
-        percentage = 1.0
-        muscleGroup = ["Outer Occipitofrontalis"]
-        speed = 4
+    #when moving the face we are given an emotion, direction and speed
+    #the emotion should be of the Emotion class
+    def moveWidget(self, emotion, direction, speed, percentage):
+        #modify the pulling percentages of each muscle pulling for emotion
+        emotion.modifyEmotionValuesByPercent(percentage)
+        activeMuscles = emotion.emotionDict.keys()
         for faceFeatureIndex in range(len(self.points)):
             faceFeaturePoints = self.points[faceFeatureIndex]
             faceFeatureVectors = self.vectors[faceFeatureIndex]
             for i in range(len(faceFeaturePoints)):
                 currPoint = faceFeaturePoints[i]
-                #pullingVectors = []
+                pullingVectors = []
                 for vector in faceFeatureVectors[i]:
-                        if vector.muscleGroup in muscleGroup:
-                            vector.updatePercentageOfVector(percentage)
-                            if self.checkPointPosition(i, currPoint, vector):
-                                # Calculate the new position
-                                newPoint = self.pullOnPoint(i, currPoint, vector.unitVector, speed, 1)
-                                self.points[faceFeatureIndex][i] = newPoint
-                #use the vector in the correct muscleGroup
-            #     if vector.muscleGroup in muscleGroup:
-            #         pullingVectors.append(vector)
-            # if len(pullingVectors) != 0:
-            #     if len(pullingVectors) == 1:
-            #         netVector = pullingVectors[0]
-            #     else:
-            #         netVector = self.createNetForce(pullingVectors)
-            #     print(i, currPoint, netVector.x, netVector.y, netVector.unitVector)
-            #     netVector.updatePercentageOfVector(percentage)
-            #     if self.checkPointPosition(i, currPoint, vector):
-            #         # Calculate the new position
-            #         newPoint = self.pullOnPoint(i, currPoint, vector.unitVector, speed, 1)
-            #         self.points[i] = newPoint
-    
+                    if vector.muscleGroup in activeMuscles:
+                        #update the vector being pulled on based on percentages from emotion
+                        vector.updateVectorUsingPercentage(emotion.getMusclePercent(vector.muscleGroup))
+                        pullingVectors.append(vector)
+                if len(pullingVectors) != 0:
+                    vector = self.createNetForce(pullingVectors)
+                    #print((self.isPointNotAtTargetLocation(i, currPoint, vector, direction)))
+                    if (self.isPointNotAtTargetLocation(i, currPoint, vector, direction)):
+                        # Calculate the new position
+                        newPoint = self.pullOnPoint(currPoint, vector.unitVector, speed, direction)
+                        self.points[faceFeatureIndex][i] = newPoint
 
+        #blinking animation - rectangle that expands
+        for faceFeature in self.faceFeatures:
+            if faceFeature.name in ["rightEyelid", "leftEyelid"]:
+                height = faceFeature.points[2]
+                if height >= 23:
+                    faceFeature.points[3] = -1 #dir becomes -1 and we are opening eyes
+                if height <= 1:
+                    if faceFeature.points[5] != 0: #if timer for holding eyes open has not run out
+                        faceFeature.points[3] = 0 #dir becomes 0
+                        faceFeature.points[5] -= 1 #timer decreases
+                    if faceFeature.points[5] == 0: # timer for holding eyes open has run out
+                        faceFeature.points[3] = 1 #dir becomes 1 and we are closing eyes
+                        faceFeature.points[5] =  faceFeature.points[4] #set the timer back to default time
+                #change the height of rectangle
+                faceFeature.points[2] = height + faceFeature.points[3]*3
+
+
+    
     #given a point, change the points location using a vector
-    def pullOnPoint(self, i, point, vector, speed, direction):
+    def pullOnPoint(self, point, vector, speed, direction):
         # Define a point's initial position
         point = np.array([point.x(), point.y()])
         # Define a force vector that represents the pull
@@ -122,17 +121,56 @@ class FaceAnimation(QWidget):
     #if there are multiple forces pulling on one point
     #takes in list of forces aka unit vectors
     def createNetForce(self, forces):
+        if len(forces) == 1: 
+            return forces[0]
         netForce = np.array([0.0, 0.0])
         for f in forces:
             netForce += np.array([f.x, f.y])
         p2 = (forces[0].p1[0] + netForce[0],forces[0].p1[1] + netForce[1])
         netVector = Vector(forces[0].p1, p2, "combined")
-        return netVector #netForce should be a unit vector
+        return netVector 
 
-    def checkPointPosition(self, i, point, vector):
-        initialPos = np.array(vector.p1)
+    #returns True if point can still move to desired emotion
+    # def isPointNotAtTargetLocation(self, i, point, vector, direction):
+    #     currPos = np.array([point.x(), point.y()])
+    #     if direction == 1:
+    #         if np.all(np.abs(currPos - np.array(vector.p2)) <= 1):
+    #             print("POINT IS AT TARGET to", currPos[0], currPos[1])
+    #             return False
+    #         initialPos = np.array(vector.p1)
+    #         distanceTraveled = np.linalg.norm(currPos - initialPos)
+    #         print(distanceTraveled, vector.getVectorLength())
+    #         if distanceTraveled >= vector.getVectorLength(): return False
+    #         return True
+    #     if direction == -1:
+    #         print("TRYING TO GO NEGATIVE")
+    #         if np.all(np.abs(currPos - np.array(vector.p1)) <= 1):
+    #             print("POINT IS AT TARGET to", currPos[0], currPos[1])
+    #             return False
+    #         initialPos = np.array(vector.p2)
+    #         distanceTraveled = np.linalg.norm(initialPos-currPos)
+    #         print("vector", vector.p1, vector.p2)
+    #         print(distanceTraveled, vector.getVectorLength())
+    #         if distanceTraveled >= vector.getVectorLength(): return False
+    #         return True
+    def isPointNotAtTargetLocation(self, i, point, vector, direction):
         currPos = np.array([point.x(), point.y()])
-        distanceTraveled = np.linalg.norm(currPos - initialPos)
-        if distanceTraveled >= vector.getVectorLength(): return False
-        return True
+        threshold = 1e-2  # Adjust the threshold as needed
 
+        if direction == 1:
+            targetPos = np.array(vector.p2).astype(float)
+            distanceTraveled = np.linalg.norm(currPos - np.array(vector.p1).astype(float))
+            #print(f"Direction 1 - Distance Traveled: {distanceTraveled}, Vector Length: {vector.getVectorLength(1)}, point: {i}")
+            if np.all(np.abs(currPos - targetPos) <= threshold) or distanceTraveled >= vector.getVectorLength():
+                return False
+            return True
+
+        if direction == -1:
+            targetPos = np.array(vector.p1).astype(float)
+            distanceTraveled = (((currPos[0] - vector.p2[0]) ** 2)+ ((currPos[1] - vector.p2[1]) ** 2))**0.5
+            #print(distanceTraveled)
+            #np.linalg.norm(np.array(vector.p2).astype(float) - currPos)
+            #print(f"Direction -1 - Distance Traveled: {distanceTraveled}, Vector Length: {vector.getVectorLength()}, point: {i}")
+            if np.all(np.abs(currPos - targetPos) <= threshold) or distanceTraveled >= vector.getVectorLength():
+                return False
+            return True
