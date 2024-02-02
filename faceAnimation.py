@@ -1,5 +1,5 @@
 import numpy as np
-
+import random
 import sys
 import math
 import os
@@ -84,10 +84,11 @@ class FaceAnimation(QWidget):
                     #print((self.isPointNotAtTargetLocation(i, currPoint, vector, direction)))
                     if (self.isPointNotAtTargetLocation(i, currPoint, vector, direction)):
                         # Calculate the new position
-                        newPoint = self.pullOnPoint(currPoint, vector.unitVector, speed, direction)
+                        newPoint = self.pullOnPoint(currPoint, vector, speed, direction)
                         self.points[faceFeatureIndex][i] = newPoint
 
         #blinking animation - rectangle that expands
+        blinktime = random.randint(1, 30)
         for faceFeature in self.faceFeatures:
             if faceFeature.name in ["rightEyelid", "leftEyelid"]:
                 height = faceFeature.points[2]
@@ -99,7 +100,8 @@ class FaceAnimation(QWidget):
                         faceFeature.points[5] -= 1 #timer decreases
                     if faceFeature.points[5] == 0: # timer for holding eyes open has run out
                         faceFeature.points[3] = 1 #dir becomes 1 and we are closing eyes
-                        faceFeature.points[5] =  faceFeature.points[4] #set the timer back to default time
+                        #change timer back to random blinktime
+                        faceFeature.points[5] = blinktime
                 #change the height of rectangle
                 faceFeature.points[2] = height + faceFeature.points[3]*3
 
@@ -107,15 +109,27 @@ class FaceAnimation(QWidget):
     
     #given a point, change the points location using a vector
     def pullOnPoint(self, point, vector, speed, direction):
+        #print("pulling on point!")
+        unitVector = vector.unitVector
+        targetPos = None
+        if direction == 1:
+            targetPos = np.array(vector.p2).astype(float)
+        else:
+            targetPos = np.array(vector.p1).astype(float)
         # Define a point's initial position
         point = np.array([point.x(), point.y()])
         # Define a force vector that represents the pull
-        force = np.array(vector * speed * direction)  # Adjust the values as needed
+        force = np.array(unitVector * speed * direction)  # Adjust the values as needed
 
         # Update the point's location by applying the force
-        new_position = point + force
+        newPosition = point + force
         #return the new position
-        return QPointF(new_position[0], new_position[1])
+        # if True in newPosition > targetPos :
+        #     return QPointF(targetPos[0], targetPos[1])
+        # if True in newPosition < targetPos :
+        #     return QPointF(targetPos[0], targetPos[1])
+        # else:
+        return QPointF(newPosition[0], newPosition[1])
 
 
     #if there are multiple forces pulling on one point
@@ -130,29 +144,6 @@ class FaceAnimation(QWidget):
         netVector = Vector(forces[0].p1, p2, "combined")
         return netVector 
 
-    #returns True if point can still move to desired emotion
-    # def isPointNotAtTargetLocation(self, i, point, vector, direction):
-    #     currPos = np.array([point.x(), point.y()])
-    #     if direction == 1:
-    #         if np.all(np.abs(currPos - np.array(vector.p2)) <= 1):
-    #             print("POINT IS AT TARGET to", currPos[0], currPos[1])
-    #             return False
-    #         initialPos = np.array(vector.p1)
-    #         distanceTraveled = np.linalg.norm(currPos - initialPos)
-    #         print(distanceTraveled, vector.getVectorLength())
-    #         if distanceTraveled >= vector.getVectorLength(): return False
-    #         return True
-    #     if direction == -1:
-    #         print("TRYING TO GO NEGATIVE")
-    #         if np.all(np.abs(currPos - np.array(vector.p1)) <= 1):
-    #             print("POINT IS AT TARGET to", currPos[0], currPos[1])
-    #             return False
-    #         initialPos = np.array(vector.p2)
-    #         distanceTraveled = np.linalg.norm(initialPos-currPos)
-    #         print("vector", vector.p1, vector.p2)
-    #         print(distanceTraveled, vector.getVectorLength())
-    #         if distanceTraveled >= vector.getVectorLength(): return False
-    #         return True
     def isPointNotAtTargetLocation(self, i, point, vector, direction):
         currPos = np.array([point.x(), point.y()])
         threshold = 1e-2  # Adjust the threshold as needed

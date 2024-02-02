@@ -26,7 +26,6 @@ class Vector():
 
 
     def getVectorLength(self):
-        print(f"getting vector length, p1: {self.p1}, p2:{self.p2}")
         p1 = self.p1
         p2 = self.p2
         distance = (((p2[0] - p1[0]) ** 2)+ ((p2[1] - p1[1]) ** 2))**0.5
