@@ -88,7 +88,7 @@ class FaceAnimation(QWidget):
                         self.points[faceFeatureIndex][i] = newPoint
 
         #blinking animation - rectangle that expands
-        blinktime = random.randint(1, 30)
+        blinktime = random.randint(1, 20)
         for faceFeature in self.faceFeatures:
             if faceFeature.name in ["rightEyelid", "leftEyelid"]:
                 height = faceFeature.points[2]
